@@ -164,10 +164,8 @@ export class Tank {
     const fx = -sinYaw, fz = -cosYaw;
     const rx = cosYaw, rz = -sinYaw;
     
-    // Update local variables if clamped
-    if (clamped) {
-      cx = pos.GetX(); // Actually we already mutated cx, cy, cz above manually before passing to RVec3!
-    }
+    // The cx, cy, cz variables are already defined and clamped above.
+    // They correctly reflect the tank's current (possibly clamped) position.
 
     const getHitPoint = (dx: number, dz: number): vec3 => {
       const wx = cx + rx * dx + fx * dz;

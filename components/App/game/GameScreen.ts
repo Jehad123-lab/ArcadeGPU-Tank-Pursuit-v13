@@ -257,16 +257,30 @@ export class GameScreen extends Screen {
     ] as vec3;
 
     // Camera Collision Avoidance
-    const rayStart = [followPos[0], followPos[1] + targetHeightOffset, followPos[2]];
-    const ray = gfx3JoltManager.createRay(rayStart[0], rayStart[1], rayStart[2], camTarget[0], camTarget[1], camTarget[2]);
-    if (ray.fraction < 1.0) {
-        // Buffer offset so it does not perfectly glue to the wall surface
-        // The subtraction corresponds to approximately 0.5 meters safely, scaling based on length
-        const distance = Math.hypot(camTarget[0] - rayStart[0], camTarget[1] - rayStart[1], camTarget[2] - rayStart[2]);
-        const safeFraction = Math.max(0.01, ray.fraction - (0.5 / distance));
-        camTarget[0] = rayStart[0] + (camTarget[0] - rayStart[0]) * safeFraction;
-        camTarget[1] = rayStart[1] + (camTarget[1] - rayStart[1]) * safeFraction;
-        camTarget[2] = rayStart[2] + (camTarget[2] - rayStart[2]) * safeFraction;
+    // Start the ray slightly away from the tank to avoid hitting the player itself
+    const rayBase = [followPos[0], followPos[1] + targetHeightOffset, followPos[2]] as vec3;
+    const toCam = UT.VEC3_SUBSTRACT(camTarget, rayBase);
+    const distToCam = UT.VEC3_LENGTH(toCam);
+    
+    if (distToCam > 3.0) {
+        const toCamNorm = UT.VEC3_NORMALIZE(toCam);
+        // Start 3 meters away from the center of the tank
+        const rayStart = UT.VEC3_ADD(rayBase, UT.VEC3_SCALE(toCamNorm, 3.0));
+        const ray = gfx3JoltManager.createRay(rayStart[0], rayStart[1], rayStart[2], camTarget[0], camTarget[1], camTarget[2]);
+        
+        if (ray.fraction < 1.0) {
+            // Adjust the target based on the hit
+            const hitDistance = (distToCam - 3.0) * ray.fraction;
+            const safeDistance = Math.max(0.5, hitDistance - 0.5);
+            const safeFraction = safeDistance / distToCam; // Relative to the WHOLE distance from base? No.
+            
+            // Simplified: snap camTarget to the hit point with a small offset
+            const hitPoint = UT.VEC3_ADD(rayStart, UT.VEC3_SCALE(UT.VEC3_SUBSTRACT(camTarget, rayStart), ray.fraction));
+            const pushBack = UT.VEC3_SCALE(toCamNorm, -0.5);
+            camTarget[0] = hitPoint[0] + pushBack[0];
+            camTarget[1] = hitPoint[1] + pushBack[1];
+            camTarget[2] = hitPoint[2] + pushBack[2];
+        }
     }
     
     const camPos = this.camera.getPosition();
