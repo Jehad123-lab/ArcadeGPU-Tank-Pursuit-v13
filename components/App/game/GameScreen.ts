@@ -262,7 +262,7 @@ export class GameScreen extends Screen {
     if (ray.fraction < 1.0) {
         // Buffer offset so it does not perfectly glue to the wall surface
         // The subtraction corresponds to approximately 0.5 meters safely, scaling based on length
-        const distance = UT.VEC3_DISTANCE(rayStart as vec3, camTarget);
+        const distance = Math.hypot(camTarget[0] - rayStart[0], camTarget[1] - rayStart[1], camTarget[2] - rayStart[2]);
         const safeFraction = Math.max(0.01, ray.fraction - (0.5 / distance));
         camTarget[0] = rayStart[0] + (camTarget[0] - rayStart[0]) * safeFraction;
         camTarget[1] = rayStart[1] + (camTarget[1] - rayStart[1]) * safeFraction;
