@@ -59,9 +59,9 @@ export class Tank {
     this.hatch = createBoxMesh(0.6, 0.15, 0.6, [0.15, 0.15, 0.15]);
     this.antenna = createBoxMesh(0.05, 1.5, 0.05, [0.1, 0.1, 0.1]);
 
-    this.physicsBody = gfx3JoltManager.addSphere({
-      radius: 1.75,
-      x: 0, y: 1.75, z: 0,
+    this.physicsBody = gfx3JoltManager.addBox({
+      width: 3.45, height: 0.9, depth: 3.6,
+      x: 0, y: 0.5, z: 0,
       motionType: Gfx3Jolt.EMotionType_Dynamic,
       layer: JOLT_LAYER_MOVING,
       settings: { mAngularDamping: 1.0, mLinearDamping: 0.5, mMassPropertiesOverride: 100.0, mAllowedDOFs: 7 }
@@ -133,16 +133,7 @@ export class Tank {
     const joltLinVel = new Gfx3Jolt.Vec3(linVel[0], curVel.GetY(), linVel[2]);
     gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), joltLinVel);
     
-    // Explicitly wake body if we have input velocity
-    if (Math.abs(this.velocity) > 0.01 || Math.abs(moveDir.x) > 0.01) {
-        gfx3JoltManager.bodyInterface.ActivateBody(this.physicsBody.body.GetID());
-    }
-    
     const pos = this.physicsBody.body.GetPosition();
-    // Since sphere physics body is centered at 1.75 (radius 1.75) but visual box was at 0.5,
-    // we need to offset the drawing position down by 1.25 units
-    const drawY = pos.GetY() - 1.25;
-
     let quat = Quaternion.createFromEuler(this.rotation, 0, 0, 'YXZ');
     
     // Cast rays from 4 corners down to find the ground normal for smooth banking
@@ -155,17 +146,15 @@ export class Tank {
     const rx = cosYaw, rz = -sinYaw;
     
     const cx = pos.GetX();
-    const cy = drawY; // use visual center for raycasting origin (0.5 above ground)
+    const cy = pos.GetY();
     const cz = pos.GetZ();
 
     const getHitPoint = (dx: number, dz: number): vec3 => {
       const wx = cx + rx * dx + fx * dz;
       const wz = cz + rz * dx + fz * dz;
-      // Filter out high hits. If ray hit fraction is < 0.2, it hit something 2.4 units high (a wall/crate)
-      // We only want to align to ground, so we shoot a longer ray and restrict the allowed hit distance.
-      const ray = gfx3JoltManager.createRay(wx, cy + 1.0, wz, wx, cy - 3.0, wz);
-      if (ray.fraction < 1.0 && ray.fraction > 0.1) {
-        return [wx, (cy + 1.0) - ray.fraction * 4.0, wz];
+      const ray = gfx3JoltManager.createRay(wx, cy, wz, wx, cy - 3.0, wz);
+      if (ray.fraction < 1.0) {
+        return [wx, cy - ray.fraction * 3.0, wz];
       }
       return [wx, cy - 1.5, wz]; 
     };
@@ -214,20 +203,20 @@ export class Tank {
     // Sync Mesh Positions
     const q = quat;
 
-    this.body.setPosition(pos.GetX(), drawY, pos.GetZ());
+    this.body.setPosition(pos.GetX(), pos.GetY(), pos.GetZ());
     this.body.setQuaternion(q);
 
     // Component Offsets
     const trackOffsetL = q.rotateVector([-1.425, -0.15, 0]);
-    this.trackL.setPosition(pos.GetX() + trackOffsetL[0], drawY + trackOffsetL[1], pos.GetZ() + trackOffsetL[2]);
+    this.trackL.setPosition(pos.GetX() + trackOffsetL[0], pos.GetY() + trackOffsetL[1], pos.GetZ() + trackOffsetL[2]);
     this.trackL.setQuaternion(q);
 
     const trackOffsetR = q.rotateVector([1.425, -0.15, 0]);
-    this.trackR.setPosition(pos.GetX() + trackOffsetR[0], drawY + trackOffsetR[1], pos.GetZ() + trackOffsetR[2]);
+    this.trackR.setPosition(pos.GetX() + trackOffsetR[0], pos.GetY() + trackOffsetR[1], pos.GetZ() + trackOffsetR[2]);
     this.trackR.setQuaternion(q);
 
     const engineOffset = q.rotateVector([0, 0.3, 1.8]);
-    this.engine.setPosition(pos.GetX() + engineOffset[0], drawY + engineOffset[1], pos.GetZ() + engineOffset[2]);
+    this.engine.setPosition(pos.GetX() + engineOffset[0], pos.GetY() + engineOffset[1], pos.GetZ() + engineOffset[2]);
     this.engine.setQuaternion(q);
 
     // Turret follows body tilt but has independent yaw
@@ -252,19 +241,19 @@ export class Tank {
     
     // Apply pitch exclusively to the barrel/turret gun
     // Note: To pitch up, we rotate around X axis.
-    // Limit barrel pitch to realistic tank gun depression (-0.15 rad) and elevation (0.5 rad)
-    const barrelPitch = Math.max(-0.5, Math.min(0.15, cameraPitch));
+    // Limit barrel pitch to realistic tank gun depression (-0.25 rad) and elevation (0.5 rad)
+    const barrelPitch = Math.max(-0.5, Math.min(0.25, cameraPitch));
     const pitchQ = Quaternion.createFromEuler(0, -barrelPitch, 0, 'YXZ'); // pitch is X axis rotation
     const barrelQ = Quaternion.multiply(turretQ, pitchQ);
 
     // Increase turret elevation to sit properly on body top (body height 0.9 -> top 0.45)
     // Turret height 0.75 -> center at 0.45 + 0.375 = 0.825. Using 0.85 for safety.
     const turretOffset = q.rotateVector([0, 0.85, 0]);
-    this.turret.setPosition(pos.GetX() + turretOffset[0], drawY + turretOffset[1], pos.GetZ() + turretOffset[2]);
+    this.turret.setPosition(pos.GetX() + turretOffset[0], pos.GetY() + turretOffset[1], pos.GetZ() + turretOffset[2]);
     this.turret.setQuaternion(turretQ);
 
     const visualRecoil = this.shellRecoil > 0 ? this.shellRecoil * 0.45 : 0;
-    const barrelRelativePos = barrelQ.rotateVector([0, 0.2, -1.2 + visualRecoil]); // Slightly elevate barrel center
+    const barrelRelativePos = barrelQ.rotateVector([0, 0.1, -1.2 + visualRecoil]); // Slightly elevate barrel center
     const turretPos = this.turret.getPosition();
     this.barrel.setPosition(turretPos[0] + barrelRelativePos[0], turretPos[1] + barrelRelativePos[1], turretPos[2] + barrelRelativePos[2]);
     this.barrel.setQuaternion(barrelQ);

@@ -250,41 +250,23 @@ export class GameScreen extends Screen {
         return;
     }
 
-    const desiredLookTarget = [followPos[0], followPos[1] + targetHeightOffset, followPos[2]] as vec3;
-
-    let camTarget = [
-        desiredLookTarget[0] + camOffset[0],
-        desiredLookTarget[1] + camOffset[1],
-        desiredLookTarget[2] + camOffset[2]
+    const camTarget = [
+        followPos[0] + camOffset[0],
+        followPos[1] + camOffset[1] + targetHeightOffset,
+        followPos[2] + camOffset[2]
     ] as vec3;
-    
-    // Raycast to prevent camera from clipping into walls
-    const rayHit = gfx3JoltManager.createRay(
-        desiredLookTarget[0], desiredLookTarget[1], desiredLookTarget[2],
-        camTarget[0], camTarget[1], camTarget[2]
-    );
 
-    // If we hit something and the hit body is NOT the player's tank physics body
-    // we use GetID().GetIndexAndSequenceNumber() because emscripten wrapped objects have different JS refs
-    if (rayHit.fraction < 1.0) {
-        const hitBodyIndex = rayHit.body?.GetID().GetIndexAndSequenceNumber();
-        const tankBodyIndex = this.tank.physicsBody?.body?.GetID().GetIndexAndSequenceNumber();
-        if (!this.tank.physicsBody || hitBodyIndex !== tankBodyIndex) {
-            const padding = 0.5; // distance from wall
-            const dx = camTarget[0] - desiredLookTarget[0];
-            const dy = camTarget[1] - desiredLookTarget[1];
-            const dz = camTarget[2] - desiredLookTarget[2];
-            const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy + dz * dz));
-            
-            // push out a little bit from the hit surface
-            let hitFraction = Math.max(0.01, rayHit.fraction - (padding / distance));
-            
-            camTarget = [
-                desiredLookTarget[0] + dx * hitFraction,
-                desiredLookTarget[1] + dy * hitFraction,
-                desiredLookTarget[2] + dz * hitFraction
-            ];
-        }
+    // Camera Collision Avoidance
+    const rayStart = [followPos[0], followPos[1] + targetHeightOffset, followPos[2]];
+    const ray = gfx3JoltManager.createRay(rayStart[0], rayStart[1], rayStart[2], camTarget[0], camTarget[1], camTarget[2]);
+    if (ray.fraction < 1.0) {
+        // Buffer offset so it does not perfectly glue to the wall surface
+        // The subtraction corresponds to approximately 0.5 meters safely, scaling based on length
+        const distance = UT.VEC3_DISTANCE(rayStart as vec3, camTarget);
+        const safeFraction = Math.max(0.01, ray.fraction - (0.5 / distance));
+        camTarget[0] = rayStart[0] + (camTarget[0] - rayStart[0]) * safeFraction;
+        camTarget[1] = rayStart[1] + (camTarget[1] - rayStart[1]) * safeFraction;
+        camTarget[2] = rayStart[2] + (camTarget[2] - rayStart[2]) * safeFraction;
     }
     
     const camPos = this.camera.getPosition();
@@ -294,6 +276,7 @@ export class GameScreen extends Screen {
 
     const lerpedPos = UT.VEC3_LERP(camPos, camTarget, posLerpRate);
     
+    const desiredLookTarget = [followPos[0], followPos[1] + targetHeightOffset, followPos[2]] as vec3;
     this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, desiredLookTarget, targetLerpRate);
     
     // Final NaN check before setting
