@@ -277,11 +277,7 @@ export class GameScreen extends Screen {
             const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy + dz * dz));
             
             // push out a little bit from the hit surface
-            let hitFraction = Math.max(0, rayHit.fraction - (padding / distance));
-            
-            // Prevent camera from clipping fully inside the tank due to wall push
-            const minDistanceFraction = 2.5 / distance;
-            hitFraction = Math.max(hitFraction, minDistanceFraction);
+            let hitFraction = Math.max(0.01, rayHit.fraction - (padding / distance));
             
             camTarget = [
                 desiredLookTarget[0] + dx * hitFraction,
