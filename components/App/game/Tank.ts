@@ -241,8 +241,8 @@ export class Tank {
     
     // Apply pitch exclusively to the barrel/turret gun
     // Note: To pitch up, we rotate around X axis.
-    // Limit barrel pitch to realistic tank gun depression (-0.25 rad) and elevation (0.5 rad)
-    const barrelPitch = Math.max(-0.5, Math.min(0.25, cameraPitch));
+    // Limit barrel pitch to realistic tank gun depression (-0.15 rad) and elevation (0.5 rad)
+    const barrelPitch = Math.max(-0.5, Math.min(0.15, cameraPitch));
     const pitchQ = Quaternion.createFromEuler(0, -barrelPitch, 0, 'YXZ'); // pitch is X axis rotation
     const barrelQ = Quaternion.multiply(turretQ, pitchQ);
 
@@ -253,7 +253,7 @@ export class Tank {
     this.turret.setQuaternion(turretQ);
 
     const visualRecoil = this.shellRecoil > 0 ? this.shellRecoil * 0.45 : 0;
-    const barrelRelativePos = barrelQ.rotateVector([0, 0.1, -1.2 + visualRecoil]); // Slightly elevate barrel center
+    const barrelRelativePos = barrelQ.rotateVector([0, 0.2, -1.2 + visualRecoil]); // Slightly elevate barrel center
     const turretPos = this.turret.getPosition();
     this.barrel.setPosition(turretPos[0] + barrelRelativePos[0], turretPos[1] + barrelRelativePos[1], turretPos[2] + barrelRelativePos[2]);
     this.barrel.setQuaternion(barrelQ);

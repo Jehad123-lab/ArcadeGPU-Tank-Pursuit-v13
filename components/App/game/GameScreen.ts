@@ -250,11 +250,46 @@ export class GameScreen extends Screen {
         return;
     }
 
-    const camTarget = [
-        followPos[0] + camOffset[0],
-        followPos[1] + camOffset[1] + targetHeightOffset,
-        followPos[2] + camOffset[2]
+    const desiredLookTarget = [followPos[0], followPos[1] + targetHeightOffset, followPos[2]] as vec3;
+
+    let camTarget = [
+        desiredLookTarget[0] + camOffset[0],
+        desiredLookTarget[1] + camOffset[1],
+        desiredLookTarget[2] + camOffset[2]
     ] as vec3;
+    
+    // Raycast to prevent camera from clipping into walls
+    const rayHit = gfx3JoltManager.createRay(
+        desiredLookTarget[0], desiredLookTarget[1], desiredLookTarget[2],
+        camTarget[0], camTarget[1], camTarget[2]
+    );
+
+    // If we hit something and the hit body is NOT the player's tank physics body
+    // we use GetID().GetIndexAndSequenceNumber() because emscripten wrapped objects have different JS refs
+    if (rayHit.fraction < 1.0) {
+        const hitBodyIndex = rayHit.body?.GetID().GetIndexAndSequenceNumber();
+        const tankBodyIndex = this.tank.physicsBody?.body?.GetID().GetIndexAndSequenceNumber();
+        if (!this.tank.physicsBody || hitBodyIndex !== tankBodyIndex) {
+            const padding = 0.5; // distance from wall
+            const dx = camTarget[0] - desiredLookTarget[0];
+            const dy = camTarget[1] - desiredLookTarget[1];
+            const dz = camTarget[2] - desiredLookTarget[2];
+            const distance = Math.max(0.001, Math.sqrt(dx * dx + dy * dy + dz * dz));
+            
+            // push out a little bit from the hit surface
+            let hitFraction = Math.max(0, rayHit.fraction - (padding / distance));
+            
+            // Prevent camera from clipping fully inside the tank due to wall push
+            const minDistanceFraction = 2.5 / distance;
+            hitFraction = Math.max(hitFraction, minDistanceFraction);
+            
+            camTarget = [
+                desiredLookTarget[0] + dx * hitFraction,
+                desiredLookTarget[1] + dy * hitFraction,
+                desiredLookTarget[2] + dz * hitFraction
+            ];
+        }
+    }
     
     const camPos = this.camera.getPosition();
     // Smooth frame-rate independent lerp
@@ -263,7 +298,6 @@ export class GameScreen extends Screen {
 
     const lerpedPos = UT.VEC3_LERP(camPos, camTarget, posLerpRate);
     
-    const desiredLookTarget = [followPos[0], followPos[1] + targetHeightOffset, followPos[2]] as vec3;
     this.cameraLookTarget = UT.VEC3_LERP(this.cameraLookTarget, desiredLookTarget, targetLerpRate);
     
     // Final NaN check before setting
