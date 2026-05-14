@@ -29,5 +29,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["node_modules", "importmap.js"]
+  "exclude": ["importmap.js"]
 }

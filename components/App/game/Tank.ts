@@ -134,25 +134,6 @@ export class Tank {
     gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), joltLinVel);
     
     const pos = this.physicsBody.body.GetPosition();
-    let cx = pos.GetX();
-    let cy = pos.GetY();
-    let cz = pos.GetZ();
-    
-    // Hard map boundaries (mapSize=400, boundary at 200, tank width ~4. So 195 is safe)
-    const BOUND = 195;
-    let clamped = false;
-    if (cx > BOUND) { cx = BOUND; clamped = true; }
-    if (cx < -BOUND) { cx = -BOUND; clamped = true; }
-    if (cz > BOUND) { cz = BOUND; clamped = true; }
-    if (cz < -BOUND) { cz = -BOUND; clamped = true; }
-    
-    if (clamped) {
-      const newPos = new Gfx3Jolt.RVec3(cx, cy, cz);
-      gfx3JoltManager.bodyInterface.SetPosition(this.physicsBody.body.GetID(), newPos, Gfx3Jolt.EActivation_Activate);
-      gfx3JoltManager.bodyInterface.SetLinearVelocity(this.physicsBody.body.GetID(), new Gfx3Jolt.Vec3(0, curVel.GetY(), 0));
-      this.velocity = 0;
-    }
-    
     let quat = Quaternion.createFromEuler(this.rotation, 0, 0, 'YXZ');
     
     // Cast rays from 4 corners down to find the ground normal for smooth banking
@@ -164,8 +145,9 @@ export class Tank {
     const fx = -sinYaw, fz = -cosYaw;
     const rx = cosYaw, rz = -sinYaw;
     
-    // The cx, cy, cz variables are already defined and clamped above.
-    // They correctly reflect the tank's current (possibly clamped) position.
+    const cx = pos.GetX();
+    const cy = pos.GetY();
+    const cz = pos.GetZ();
 
     const getHitPoint = (dx: number, dz: number): vec3 => {
       const wx = cx + rx * dx + fx * dz;
